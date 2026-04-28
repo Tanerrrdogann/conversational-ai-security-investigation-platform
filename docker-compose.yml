@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-security_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-security_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-security_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-security_user} -d ${POSTGRES_DB:-security_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  platform-api:
+    build:
+      context: ./apps/platform-api
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-security_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-security_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-security_password}
+      APP_AI_SERVICE_BASE_URL: http://ai-service:8000
+      APP_AUTH_ADMIN_USERNAME: ${APP_AUTH_ADMIN_USERNAME:-admin}
+      APP_AUTH_ADMIN_PASSWORD: ${APP_AUTH_ADMIN_PASSWORD:-admin123}
+      APP_AUTH_ANALYST_USERNAME: ${APP_AUTH_ANALYST_USERNAME:-analyst}
+      APP_AUTH_ANALYST_PASSWORD: ${APP_AUTH_ANALYST_PASSWORD:-analyst123}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+
+  ai-service:
+    build:
+      context: ./apps/ai-service
+    restart: unless-stopped
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
+      GROQ_BASE_URL: ${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health', timeout=5).read().decode())"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build:
+      context: ./apps/web
+    restart: unless-stopped
+    environment:
+      VITE_API_PROXY_TARGET: http://platform-api:8080
+    depends_on:
+      platform-api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

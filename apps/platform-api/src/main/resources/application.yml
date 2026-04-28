@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: platform-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/security_platform}
+    username: ${SPRING_DATASOURCE_USERNAME:security_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:security_password}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+server:
+  port: 8080
+
+app:
+  ai-service:
+    base-url: ${APP_AI_SERVICE_BASE_URL:http://localhost:8000}
+  auth:
+    admin:
+      username: ${APP_AUTH_ADMIN_USERNAME:admin}
+      password: ${APP_AUTH_ADMIN_PASSWORD:admin123}
+    analyst:
+      username: ${APP_AUTH_ANALYST_USERNAME:analyst}
+      password: ${APP_AUTH_ANALYST_PASSWORD:analyst123}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

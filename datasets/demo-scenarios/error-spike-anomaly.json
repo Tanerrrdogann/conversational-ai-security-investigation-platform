@@ -1,0 +1,39 @@
+{
+  "name": "Critical Service Error Spike",
+  "description": "Simulated app instability that can be discussed as either ops noise or an attack indicator.",
+  "events": [
+    {
+      "sourceType": "APP_LOG",
+      "occurredAt": "2026-04-24T10:15:00Z",
+      "sourceIp": "10.10.0.5",
+      "destinationIp": "10.10.0.31",
+      "destinationPort": 8443,
+      "username": "system",
+      "serviceName": "payment-gateway",
+      "endpoint": "/checkout",
+      "rawMessage": "error spike detected in payment gateway with timeout exception burst"
+    },
+    {
+      "sourceType": "APP_LOG",
+      "occurredAt": "2026-04-24T10:16:10Z",
+      "sourceIp": "10.10.0.5",
+      "destinationIp": "10.10.0.31",
+      "destinationPort": 8443,
+      "username": "system",
+      "serviceName": "payment-gateway",
+      "endpoint": "/checkout",
+      "rawMessage": "critical service error spike continuing with elevated timeout and exception count"
+    },
+    {
+      "sourceType": "ACCESS_LOG",
+      "occurredAt": "2026-04-24T10:17:30Z",
+      "sourceIp": "203.0.113.77",
+      "destinationIp": "10.10.0.31",
+      "destinationPort": 443,
+      "username": null,
+      "serviceName": "payment-gateway",
+      "endpoint": "/checkout/health",
+      "rawMessage": "404 probing and repeated denied resource access near payment gateway"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "name": "Brute Force Attack",
+  "description": "Simulated repeated failed login activity against an admin account followed by denied access noise.",
+  "events": [
+    {
+      "sourceType": "AUTH_LOG",
+      "occurredAt": "2026-04-24T08:00:00Z",
+      "sourceIp": "185.24.91.18",
+      "destinationIp": "10.10.0.12",
+      "destinationPort": 443,
+      "username": "admin",
+      "serviceName": "auth-service",
+      "endpoint": "/admin/login",
+      "rawMessage": "failed login for admin account from suspicious source"
+    },
+    {
+      "sourceType": "AUTH_LOG",
+      "occurredAt": "2026-04-24T08:01:30Z",
+      "sourceIp": "185.24.91.18",
+      "destinationIp": "10.10.0.12",
+      "destinationPort": 443,
+      "username": "admin",
+      "serviceName": "auth-service",
+      "endpoint": "/admin/login",
+      "rawMessage": "login failed for admin after repeated brute force attempt"
+    },
+    {
+      "sourceType": "ACCESS_LOG",
+      "occurredAt": "2026-04-24T08:02:10Z",
+      "sourceIp": "185.24.91.18",
+      "destinationIp": "10.10.0.12",
+      "destinationPort": 443,
+      "username": "admin",
+      "serviceName": "auth-service",
+      "endpoint": "/admin/login",
+      "rawMessage": "access denied storm triggered for admin login endpoint"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+.git
+.env
+.codex
+.vscode
+
+node_modules
+dist
+build
+target
+__pycache__
+*.pyc

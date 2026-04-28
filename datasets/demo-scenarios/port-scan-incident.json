@@ -1,0 +1,39 @@
+{
+  "name": "Port Scan To Incident Chain",
+  "description": "Simulated reconnaissance and follow-on privileged targeting from a single actor.",
+  "events": [
+    {
+      "sourceType": "TRAFFIC",
+      "occurredAt": "2026-04-24T09:00:00Z",
+      "sourceIp": "91.203.11.44",
+      "destinationIp": "10.10.0.20",
+      "destinationPort": 22,
+      "username": null,
+      "serviceName": "edge-gateway",
+      "endpoint": "/admin",
+      "rawMessage": "port scan detected during recon against admin gateway"
+    },
+    {
+      "sourceType": "TRAFFIC",
+      "occurredAt": "2026-04-24T09:01:20Z",
+      "sourceIp": "91.203.11.44",
+      "destinationIp": "10.10.0.20",
+      "destinationPort": 3389,
+      "username": null,
+      "serviceName": "edge-gateway",
+      "endpoint": "/admin",
+      "rawMessage": "scan probe continued toward sensitive admin management ports"
+    },
+    {
+      "sourceType": "SIMULATED_ATTACK",
+      "occurredAt": "2026-04-24T09:03:00Z",
+      "sourceIp": "91.203.11.44",
+      "destinationIp": "10.10.0.20",
+      "destinationPort": 443,
+      "username": "svc-admin",
+      "serviceName": "identity-gateway",
+      "endpoint": "/admin/console",
+      "rawMessage": "privileged admin access attempt after scan from blacklisted threat intel actor"
+    }
+  ]
+}
