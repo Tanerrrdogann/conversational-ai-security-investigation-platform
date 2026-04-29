@@ -2,6 +2,11 @@
 
 An AI-first security investigation platform that ingests security events, normalizes them, scores risk, correlates suspicious behavior, and lets an analyst investigate through a conversational interface.
 
+## Projeyi Yapanlar
+
+- Ismail Taner Erdogan
+- Nisa Goksen
+
 ## What It Does
 
 - Collects security events through an ingestion API
