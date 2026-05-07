@@ -154,6 +154,8 @@ type AuthState = {
   password: string;
 };
 
+type DemoRole = "admin" | "analyst";
+
 type DataState = {
   events: EventRecord[];
   alerts: AlertRecord[];
@@ -184,8 +186,12 @@ type SourceDraft = {
   enabled: boolean;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.BASE_URL).replace(/\/$/, "");
 const AUTH_STORAGE_KEY = "caisip-auth";
+const demoAccounts: Record<DemoRole, AuthState> = {
+  admin: { username: "admin", password: "admin123" },
+  analyst: { username: "analyst", password: "analyst123" }
+};
 const initialChatEntries: ChatEntry[] = [
   {
     id: "assistant-welcome",
@@ -226,6 +232,23 @@ const tabs: Array<{ key: TabKey; label: string; eyebrow: string }> = [
 
 function encodeAuth(auth: AuthState): string {
   return `Basic ${btoa(`${auth.username}:${auth.password}`)}`;
+}
+
+function useNtworksDemoHeartbeat() {
+  useEffect(() => {
+    const heartbeat = () => {
+      fetch("/api/demos/ai-log-analysis-panel/heartbeat", {
+        method: "POST",
+        cache: "no-store",
+        keepalive: true
+      }).catch(() => {});
+    };
+
+    heartbeat();
+    const timer = window.setInterval(heartbeat, 20000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 }
 
 async function fetchJson<T>(path: string, auth: AuthState): Promise<T> {
@@ -301,8 +324,26 @@ function severityTone(severity: Severity): string {
 
 function useStoredAuth(): [AuthState | null, (next: AuthState | null) => void] {
   const [auth, setAuthState] = useState<AuthState | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("resetDemo") === "1") {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
     const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as AuthState) : null;
+    if (!stored) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(stored) as AuthState;
+      const isDemoAccount = Object.values(demoAccounts).some(
+        (account) => account.username === parsed.username && account.password === parsed.password
+      );
+      return isDemoAccount ? parsed : null;
+    } catch {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
   });
 
   function setAuth(next: AuthState | null) {
@@ -318,6 +359,8 @@ function useStoredAuth(): [AuthState | null, (next: AuthState | null) => void] {
 }
 
 function App() {
+  useNtworksDemoHeartbeat();
+
   const [auth, setAuth] = useStoredAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [data, setData] = useState<DataState>({
@@ -401,7 +444,11 @@ function App() {
       return;
     }
 
-    void loadWorkspace(auth);
+    void loadWorkspace(auth).catch((error) => {
+      if (error instanceof Error && (error.message.includes("401") || error.message.includes("403"))) {
+        setAuth(null);
+      }
+    });
   }, [auth]);
 
   const overview = useMemo(() => {
@@ -573,7 +620,11 @@ function App() {
           });
 
           if (!response.ok) {
-            throw new Error(`Investigation request failed with ${response.status}`);
+            throw new Error(
+              response.status === 401 || response.status === 403
+                ? "Demo session expired. Choose Admin or Analyst again."
+                : `Investigation request failed with ${response.status}`
+            );
           }
 
           const payload = (await response.json()) as ApiResponse<InvestigationResponse>;
@@ -590,12 +641,17 @@ function App() {
             }
           ]);
         } catch (error) {
+          if (error instanceof Error && error.message.includes("Demo session expired")) {
+            setAuth(null);
+          }
           setChatEntries((current) => [
             ...current,
             {
               id: `assistant-error-${Date.now()}`,
               role: "assistant",
-              message: error instanceof Error ? error.message : "Investigation request failed.",
+              message: error instanceof Error
+                ? error.message
+                : "Investigation chat could not respond. Please try the demo role button again.",
               meta: "Request error"
             }
           ]);
@@ -637,7 +693,7 @@ function App() {
             </button>
             <button
               type="button"
-              className="action-button"
+              className="action-button logout"
               onClick={() => {
                 resetInvestigationChat();
                 setAuth(null);
@@ -763,15 +819,17 @@ function App() {
 }
 
 function LoginScreen({ onSubmit }: { onSubmit: (auth: AuthState) => Promise<void> }) {
-  const [auth, setAuth] = useState<AuthState>({ username: "", password: "" });
+  const [auth, setAuth] = useState<AuthState>(demoAccounts.analyst);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const selectedRole: DemoRole = auth.username === "admin" ? "admin" : "analyst";
 
-  async function handleSubmit() {
+  async function handleSubmit(nextAuth = auth) {
+    setAuth(nextAuth);
     setBusy(true);
     setError(null);
     try {
-      await onSubmit(auth);
+      await onSubmit(nextAuth);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Login failed");
     } finally {
@@ -785,8 +843,29 @@ function LoginScreen({ onSubmit }: { onSubmit: (auth: AuthState) => Promise<void
         <p className="brand-kicker">CAISIP</p>
         <h1>Conversational AI Security Investigation Platform</h1>
         <p className="brand-copy">
-          Sign in with your platform account to open the security investigation workspace.
+          Demo ortamıdır. AI chat bu ekranda harici API key kullanmaz; yazdığımız platform cevap motoru çalışır.
         </p>
+
+        <div className="demo-role-grid" aria-label="Demo login choices">
+          <button
+            type="button"
+            className={`demo-role-card admin ${selectedRole === "admin" ? "selected" : ""}`}
+            onClick={() => setAuth(demoAccounts.admin)}
+            disabled={busy}
+          >
+            <span>Admin</span>
+            <strong>Rules, sources, incidents</strong>
+          </button>
+          <button
+            type="button"
+            className={`demo-role-card analyst ${selectedRole === "analyst" ? "selected" : ""}`}
+            onClick={() => setAuth(demoAccounts.analyst)}
+            disabled={busy}
+          >
+            <span>Analyst</span>
+            <strong>Dashboards, evidence, AI chat</strong>
+          </button>
+        </div>
 
         <div className="form-grid login-form-grid">
           <label className="field-label">
@@ -795,7 +874,7 @@ function LoginScreen({ onSubmit }: { onSubmit: (auth: AuthState) => Promise<void
               className="text-input"
               autoComplete="username"
               value={auth.username}
-              onChange={(event) => setAuth((current) => ({ ...current, username: event.target.value }))}
+              readOnly
             />
           </label>
           <label className="field-label">
@@ -805,14 +884,14 @@ function LoginScreen({ onSubmit }: { onSubmit: (auth: AuthState) => Promise<void
               type="password"
               autoComplete="current-password"
               value={auth.password}
-              onChange={(event) => setAuth((current) => ({ ...current, password: event.target.value }))}
+              readOnly
             />
           </label>
         </div>
 
         <div className="hero-actions login-actions">
           <button type="button" className="action-button primary" onClick={() => void handleSubmit()} disabled={busy || !auth.username || !auth.password}>
-            {busy ? "Signing In..." : "Sign In"}
+            {busy ? "Signing In..." : `Sign In As ${selectedRole === "admin" ? "Admin" : "Analyst"}`}
           </button>
         </div>
         {error ? <p className="status-badge error">{error}</p> : null}
